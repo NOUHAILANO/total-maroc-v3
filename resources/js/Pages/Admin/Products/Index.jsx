@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 export default function Index({ auth, products, filters }) {
     const [search, setSearch] = useState(filters.search || '');
 
-    // ✅ Debounce search bach mayb9ash y-reloadi f ay 7arf t-kteb
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (search !== (filters.search || '')) {
@@ -24,20 +23,50 @@ export default function Index({ auth, products, filters }) {
         }
     };
 
+    // Simple pagination handler – works everywhere
+    const goToPage = (page) => {
+        if (page === products.current_page) return;
+        router.get(route('admin.products.index'), {
+            page: page,
+            search: filters.search,
+            category: filters.category
+        }, {
+            preserveState: true,
+            replace: true
+        });
+    };
+
+    // Generate page numbers to display (with ellipsis logic, same as Laravel)
+    const getPageNumbers = () => {
+        const current = products.current_page;
+        const last = products.last_page;
+        const delta = 2; // number of pages to show on each side of current
+        const range = [];
+        for (let i = Math.max(2, current - delta); i <= Math.min(last - 1, current + delta); i++) {
+            range.push(i);
+        }
+        if (current - delta > 2) {
+            range.unshift('...');
+        }
+        if (current + delta < last - 1) {
+            range.push('...');
+        }
+        range.unshift(1);
+        if (last !== 1) range.push(last);
+        return range;
+    };
+
     return (
         <AuthenticatedLayout
             user={auth.user}
             header={
                 <div className="flex justify-between items-center w-full">
-                    {/* ✅ Titre b style TOTAL */}
                     <div className="flex items-center gap-4">
                         <div className="w-2 h-10 bg-total-teal rounded-full"></div>
                         <h2 className="font-black text-3xl text-total-dark uppercase italic tracking-tighter">
                             📦 Gestion du Stock
                         </h2>
                     </div>
-
-                    {/* ✅ Le Bouton "Ajouter" b style TOTAL */}
                     <Link 
                         href={route('admin.products.create')} 
                         className="inline-flex items-center gap-3 bg-total-dark text-white font-black uppercase italic text-[11px] tracking-[2px] px-8 py-4 rounded-full shadow-xl hover:bg-total-teal transition-all duration-300 transform hover:scale-105 active:scale-95 group"
@@ -57,11 +86,8 @@ export default function Index({ auth, products, filters }) {
             }
         >
             <Head title="Admin - Produits" />
-
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    
-                    {/* Search Bar */}
                     <div className="mb-6">
                         <input
                             type="text"
@@ -71,7 +97,6 @@ export default function Index({ auth, products, filters }) {
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
-
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-200">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -88,23 +113,19 @@ export default function Index({ auth, products, filters }) {
                                     products.data.map((product) => (
                                         <tr key={product.id} className="hover:bg-gray-50 transition">
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                {/* ✅ Logic dyal l-image fixée bach t-looki f products folder */}
                                                 <img 
                                                     src={product.image 
                                                         ? (product.image.startsWith('http') 
                                                             ? product.image 
-                                                            : `/storage/products/${product.image}`) 
+                                                            : `/storage/${product.image}`) 
                                                         : '/images/placeholder.png'} 
                                                     className="w-12 h-12 object-contain border rounded-xl shadow-sm bg-gray-50"
                                                     alt={product.name}
                                                     onError={(e) => {
-                                                        // Ila mad khdmatch f products, i-jarreb f storage nishan
-                                                        if (e.target.src.includes('/storage/products/')) {
-                                                            e.target.src = `/storage/${product.image}`;
-                                                        } else {
-                                                            e.target.onerror = null; 
+                                                        if (e.target.src.includes('/storage/') && !e.target.src.includes('placeholder')) {
                                                             e.target.src = '/images/placeholder.png';
                                                         }
+                                                        e.target.onerror = null;
                                                     }}
                                                 />
                                             </td>
@@ -133,19 +154,58 @@ export default function Index({ auth, products, filters }) {
                             </tbody>
                         </table>
 
-                        {/* Pagination */}
-                        <div className="bg-gray-50 px-6 py-4 flex items-center justify-center gap-2 border-t">
-                            {products.links && products.links.length > 3 && products.links.map((link, index) => (
-                                <Link
-                                    key={index}
-                                    href={link.url || '#'}
-                                    className={`px-3 py-1 border rounded-lg text-[10px] font-black transition-all ${
-                                        link.active ? 'bg-total-teal text-white border-total-teal shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100'
-                                    } ${!link.url ? 'opacity-50 cursor-not-allowed hidden' : ''}`}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                        </div>
+                        {/* ✅ PAGINATION – Same professional style, works everywhere */}
+                        {products.last_page > 1 && (
+                            <div className="bg-gray-50 px-6 py-4 flex items-center justify-center gap-2 border-t">
+                                {/* Previous button */}
+                                {products.current_page > 1 && (
+                                    <button
+                                        onClick={() => goToPage(products.current_page - 1)}
+                                        className="px-4 py-2 border rounded-lg text-[11px] font-black transition-all duration-200 bg-white text-gray-600 hover:bg-total-teal hover:text-white border-gray-200 shadow-sm"
+                                    >
+                                        &laquo; Précédent
+                                    </button>
+                                )}
+
+                                {/* Page numbers with ellipsis */}
+                                {getPageNumbers().map((page, idx) => {
+                                    if (page === '...') {
+                                        return (
+                                            <span
+                                                key={`ellipsis-${idx}`}
+                                                className="px-4 py-2 border rounded-lg text-[11px] font-black opacity-30 cursor-not-allowed bg-white text-gray-600 border-gray-200 shadow-sm"
+                                            >
+                                                ...
+                                            </span>
+                                        );
+                                    }
+                                    const isActive = page === products.current_page;
+                                    return (
+                                        <button
+                                            key={page}
+                                            onClick={() => goToPage(page)}
+                                            className={`px-4 py-2 border rounded-lg text-[11px] font-black transition-all duration-200 ${
+                                                isActive
+                                                ? 'bg-total-dark text-white border-total-dark shadow-lg scale-110 z-10'
+                                                : 'bg-white text-gray-600 hover:bg-total-teal hover:text-white border-gray-200 shadow-sm'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                })}
+
+                                {/* Next button */}
+                                {products.current_page < products.last_page && (
+                                    <button
+                                        onClick={() => goToPage(products.current_page + 1)}
+                                        className="px-4 py-2 border rounded-lg text-[11px] font-black transition-all duration-200 bg-white text-gray-600 hover:bg-total-teal hover:text-white border-gray-200 shadow-sm"
+                                    >
+                                        Suivant &raquo;
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

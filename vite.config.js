@@ -10,10 +10,13 @@ export default defineConfig({
         }),
         react(),
     ],
-    // Zidi had l-partie darori bach i-t7el mouchkil dial [::1]
     server: {
-        host: 'localhost',
+        // '0.0.0.0' kikhlli Vite i-st9bel l-connexion mn ay blassa (PC aw Téléphone)
+        host: '0.0.0.0', 
+        port: 5173,
+        strictPort: true,
         hmr: {
+            // Hna kankhelliw l-HMR ikhedem m3a l-host local dyalna
             host: 'localhost',
         },
     },

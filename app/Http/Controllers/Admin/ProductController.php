@@ -25,8 +25,12 @@ class ProductController extends Controller
             $query->where('category', $request->category);
         }
 
+        // ✅ Force paginator to use the current request's full URL (critical for ngrok)
+        $products = $query->latest()->paginate(10)->withQueryString();
+        $products->withPath($request->fullUrl());
+
         return Inertia::render('Admin/Products/Index', [
-            'products' => $query->latest()->paginate(10)->withQueryString(),
+            'products' => $products,
             'filters' => $request->only(['search', 'category']),
         ]);
     }
@@ -37,16 +41,6 @@ class ProductController extends Controller
     public function create()
     {
         return Inertia::render('Admin/Products/Create');
-    }
-
-    /**
-     * Show form to edit an existing product.
-     */
-    public function edit(Product $product)
-    {
-        return Inertia::render('Admin/Products/Edit', [
-            'product' => $product
-        ]);
     }
 
     /**
@@ -77,6 +71,16 @@ class ProductController extends Controller
         Product::create($validated);
 
         return redirect()->route('admin.products.index')->with('success', 'Produit ajouté avec succès !');
+    }
+
+    /**
+     * Show form to edit an existing product.
+     */
+    public function edit(Product $product)
+    {
+        return Inertia::render('Admin/Products/Edit', [
+            'product' => $product
+        ]);
     }
 
     /**
